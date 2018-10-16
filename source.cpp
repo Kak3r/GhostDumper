@@ -28,24 +28,22 @@ int Send_via_sokcet(char* ip4, int port, LPVOID buffer, int size)
 	// Server/receiver port to connect to
 	int  RetCode;
 	// Be careful with the array bound, provide some checking mechanism...
-	char sendbuf[1024] = "This is a test string from sender";
 	int BytesSent, nlen;
 	// Initialize Winsock version 2.2
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
-	printf("Client: Winsock DLL status is %s.\n", wsaData.szSystemStatus);
 	// Create a new socket to make a client connection.
 	// AF_INET = 2, The Internet Protocol version 4 (IPv4) address family, TCP protocol
 	SendingSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (SendingSocket == INVALID_SOCKET)
 	{
-		printf("Client: socket() failed! Error code: %ld\n", WSAGetLastError());
+		std::cout << "Client: socket() failed! Error code: "<< WSAGetLastError() << "\n";
 		// Do the clean up
 		WSACleanup();
 		// Exit with error
 		return -1;
 	}
 	else
-		printf("Client: socket() is OK!\n");
+		std::cout << "Client: socket() is OK!\n";
 	// Set up a SOCKADDR_IN structure that will be used to connect
 	// to a listening server on port 5150. For demonstration
 	// purposes, let's assume our server's IP address is 127.0.0.1 or localhost
@@ -59,7 +57,7 @@ int Send_via_sokcet(char* ip4, int port, LPVOID buffer, int size)
 	RetCode = connect(SendingSocket, (SOCKADDR *)&ServerAddr, sizeof(ServerAddr));
 	if (RetCode != 0)
 	{
-		printf("Client: connect() failed! Error code: %ld\n", WSAGetLastError());
+		std::cout << "Client: connect() failed! Error code: " << WSAGetLastError() << "\n";
 		// Close the socket
 		closesocket(SendingSocket);
 		// Do the clean up
@@ -69,18 +67,18 @@ int Send_via_sokcet(char* ip4, int port, LPVOID buffer, int size)
 	}
 	else
 	{
-		printf("Client: connect() is OK, got connected...\n");
-		printf("Client: Ready for sending and/or receiving data...\n");
+		std::cout << "Client: connect() is OK, got connected...\n";
+		std::cout <<  "Client: Ready for sending and/or receiving data...\n";
 	}
 	// At this point you can start sending or receiving data on
 	// the socket SendingSocket.
 	// Some info on the receiver side...
 	BytesSent = send(SendingSocket, (char*)buffer, size, 0);
 	if (BytesSent == SOCKET_ERROR)
-		printf("Client: send() error %ld.\n", WSAGetLastError());
+		std::cout << "Client: send() error " << WSAGetLastError() << "\n";
 	else
 	{
-		printf("Client: send() is OK - bytes sent: %ld\n", BytesSent);
+		std::cout << "Client: send() is OK - bytes sent: " <<  BytesSent <<"\n";
 		// Some info on this sender side...
 		// Allocate the required resources
 		memset(&ThisSenderInfo, 0, sizeof(ThisSenderInfo));
@@ -88,21 +86,21 @@ int Send_via_sokcet(char* ip4, int port, LPVOID buffer, int size)
 		getsockname(SendingSocket, (SOCKADDR *)&ThisSenderInfo, &nlen);
 	}
 	if (shutdown(SendingSocket, SD_SEND) != 0)
-		printf("Client: Well, there is something wrong with the shutdown(). The error code : %ld\n", WSAGetLastError());
+		std::cout << "Client: Well, there is something wrong with the shutdown(). The error code :" << WSAGetLastError();
 	else
-		printf("Client: shutdown() looks OK...\n");
+		std::cout << "Client: shutdown() looks OK...\n";
 	// When you are finished sending and receiving data on socket SendingSocket,
 	// you should close the socket using the closesocket API. We will
 	// describe socket closure later in the chapter.
 	if (closesocket(SendingSocket) != 0)
-		printf("Client: Cannot close \"SendingSocket\" socket. Error code: %ld\n", WSAGetLastError());
+		std::cout << "Client: Cannot close \"SendingSocket\" socket. Error code: " <<  WSAGetLastError();
 	else
-		printf("Client: Closing \"SendingSocket\" socket...\n");
+		std::cout << "Client: Closing \"SendingSocket\" socket...\n" ;
 	// When your application is finished handling the connection, call WSACleanup.
 	if (WSACleanup() != 0)
-		printf("Client: WSACleanup() failed!...\n");
+		std::cout << "Client: WSACleanup() failed!...\n";
 	else
-		printf("Client: WSACleanup() is OK...\n");
+		std::cout << "Client: WSACleanup() is OK...\n";
 	return 0;
 }
 
@@ -133,7 +131,7 @@ bool enableDebugPrivileges() {
 
 	if (!bret)
 	{
-		printf("LookupPrivilegeValue error: %u\n", GetLastError());
+		std::cout << "LookupPrivilegeValue error: " << GetLastError() << "\n";
 		system("pause");
 		return FALSE;
 	}
@@ -145,7 +143,7 @@ bool enableDebugPrivileges() {
 	NewState.Privileges[0].Attributes = 2;
 	if (!AdjustTokenPrivileges(hToken, FALSE, &NewState, 28, &PreviousState, &ReturnLength))
 	{
-		printf("AdjustTokenPrivileges error: %u\n", GetLastError());
+		std::cout << "AdjustTokenPrivileges error: " << GetLastError() << "\n";
 		return FALSE;
 
 	}
@@ -200,7 +198,7 @@ DWORD FindProcessId(const char *processname)
 	if (!Process32First(hProcessSnap, &pe32))
 	{
 		CloseHandle(hProcessSnap);          // clean the snapshot object
-		printf("!!! Failed to gather information on system processes! \n");
+		std::cout << "Failed to gather information on system processes! error code " << GetLastError() << "\n";
 		system("pause");
 		return(NULL);
 	}
@@ -224,7 +222,7 @@ int save_dump_to_memory(LPVOID mem, HANDLE file, SIZE_T size)
 {
 	DWORD bytesRead;
 	ReadFile(file, mem, size, &bytesRead, NULL);
-	printf("read %d bytes from the transacted file in memory \n", bytesRead);
+	std::cout << "read " << bytesRead << " from the transacted file in memory \n";
 	return bytesRead;
 }
 
@@ -235,7 +233,7 @@ bool save_to_test_file(void *  mem, SIZE_T size)
 	if (WriteFile(hFile1, mem, size, &byteswrote, NULL))
 	{
 		CloseHandle(hFile1);
-		printf("wrote %d bytes to test file", byteswrote);
+		std::cout << "wrote "<< byteswrote << " bytes to test file \n";
 		return true;
 	}
 	return false;
@@ -263,14 +261,15 @@ int main(int argc, char **argv)
 
 	// Validate the parameters
 	if (argc != 4) {
-		printf("usage: %s <server_address> <port> <process name> \n", argv[0]);
+		std::cout << "usage: " << argv[0] << "<server_address> <port> <process name> \n";
 		return 1;
 	}
 
-	char *ip = argv[2];
-	int port = atoi(argv[3]);
-	char* proc_name = argv[4];
+	char *ip = argv[1];
+	int port = atoi(argv[2]);
+	char* proc_name = argv[3];
 
+	std::cout << "connecting to " << ip << " in port "<< port <<  " locating process " << proc_name << "\n";
 	enableDebugPrivileges();
 	SIZE_T size = 200000000;//get_maximum_process_size(process);
 
@@ -289,10 +288,16 @@ int main(int argc, char **argv)
 
 
 
+	char file_name[150];
+	
+	if (!ExpandEnvironmentStrings("%temp%", file_name, 150))
+	{
+		std::cout << "could not expand envirmoent variable error code " << GetLastError() << "\n";
+	}
+	
+	strcat_s(file_name, "\\trans_file");
 
-
-	const char *file_name = "C:\\Users\\Alik\\Desktop\\AutoProcDump\\Trans_file.dmp";
-
+	std::cout << "file path " << file_name << "\n";
 
 	HANDLE trans_Handle = CreateTransaction(NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	if (trans_Handle == INVALID_HANDLE_VALUE)
