@@ -226,21 +226,6 @@ int save_dump_to_memory(LPVOID mem, HANDLE file, SIZE_T size)
 	return bytesRead;
 }
 
-bool save_to_test_file(void *  mem, SIZE_T size)
-{
-	HANDLE hFile1 = CreateFile(("C:\\Users\\Alik\\Desktop\\AutoProcDump\\test_after_memory.dmp"), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-	DWORD byteswrote;
-	if (WriteFile(hFile1, mem, size, &byteswrote, NULL))
-	{
-		CloseHandle(hFile1);
-		std::cout << "wrote "<< byteswrote << " bytes to test file \n";
-		return true;
-	}
-	return false;
-}
-
-
-
 LPVOID AllocateMemoryToDump(HANDLE process, SIZE_T size)
 {
 	LPVOID mem = VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
@@ -346,17 +331,8 @@ int main(int argc, char **argv)
 	CloseHandle(trans_Handle);
 	CloseHandle(trans_file);
 
-	/*if (!save_to_test_file(mem, dump_size))
-	{
-	std::cout << "could not write dump to file error code " << GetLastError() << "\n";
-	system("pause");
-	exit(0);
-	}
 
-	//CommitTransaction(trans_Handle);
-	CloseHandle(trans_Handle);
-	CloseHandle(trans_file);
-	*/
+	
 
 
 }
