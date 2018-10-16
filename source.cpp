@@ -220,30 +220,6 @@ DWORD FindProcessId(const char *processname)
 }
 
 
-
-
-/*
-BOOL Create_pipes(SIZE_T MemorySize,PHANDLE ReadPipe,PHANDLE WritePipe)
-{
-
-if (!CreatePipe(ReadPipe, WritePipe, NULL, MemorySize))
-{
-std::cout << "could not create named pipe error code " << GetLastError() << "\n";
-system("pause");
-return FALSE;
-}
-return TRUE;
-
-}
-
-BOOL read_from_pipe(HANDLE ReadPipe, LPVOID mem, SIZE_T size)
-{
-DWORD nRead;
-return (ReadFile(ReadPipe, mem, size,&nRead, NULL));
-
-}*/
-
-
 int save_dump_to_memory(LPVOID mem, HANDLE file, SIZE_T size)
 {
 	DWORD bytesRead;
