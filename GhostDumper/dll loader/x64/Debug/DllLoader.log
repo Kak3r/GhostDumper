@@ -1,0 +1,9 @@
+﻿  Source.cpp
+c:\users\axe\git_projects\ghostdumper\ghostdumper\dll loader\source.cpp(12): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+c:\users\axe\git_projects\ghostdumper\ghostdumper\dll loader\source.cpp(273): warning C4477: 'printf' : format string '%08x' requires an argument of type 'unsigned int', but variadic argument 1 has type 'DLLMAIN'
+c:\users\axe\git_projects\ghostdumper\ghostdumper\dll loader\source.cpp(273): warning C4313: 'printf': '%x' in format string conflicts with argument 1 of type 'DLLMAIN'
+c:\users\axe\git_projects\ghostdumper\ghostdumper\dll loader\source.cpp(316): warning C4477: 'printf' : format string '%08x' requires an argument of type 'unsigned int', but variadic argument 1 has type 'DumpLSASS'
+c:\users\axe\git_projects\ghostdumper\ghostdumper\dll loader\source.cpp(316): warning C4313: 'printf': '%x' in format string conflicts with argument 1 of type 'DumpLSASS'
+c:\users\axe\git_projects\ghostdumper\ghostdumper\dll loader\source.cpp(49): warning C4715: 'Recv': not all control paths return a value
+c:\users\axe\git_projects\ghostdumper\ghostdumper\dll loader\source.cpp(75): warning C4715: 'AllocateMemoryToDLL': not all control paths return a value
+  DllLoader.vcxproj -> C:\Users\axe\git_projects\GhostDumper\GhostDumper\dll loader\x64\Debug\DllLoader.exe

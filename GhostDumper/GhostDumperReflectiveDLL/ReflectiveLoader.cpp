@@ -48,7 +48,7 @@ __declspec(noinline) ULONG_PTR caller(VOID) { return (ULONG_PTR)_ReturnAddress()
 #ifdef REFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR
 DLLEXPORT ULONG_PTR WINAPI ReflectiveLoader(LPVOID lpParameter)
 #else
-DLLEXPORT ULONG_PTR WINAPI ReflectiveLoader(VOID)
+extern "C" DLLEXPORT ULONG_PTR WINAPI ReflectiveLoader(VOID)
 #endif
 {
 	// the functions we need

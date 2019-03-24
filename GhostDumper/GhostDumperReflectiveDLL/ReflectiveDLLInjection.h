@@ -29,6 +29,8 @@
 #define _REFLECTIVEDLLINJECTION_REFLECTIVEDLLINJECTION_H
 //===============================================================================================//
 #define WIN32_LEAN_AND_MEAN
+#define WIN_X64
+//#define WIN_X86
 #include <windows.h>
 
 // we declare some common stuff in here...

